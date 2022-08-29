@@ -465,7 +465,7 @@ func (s *server) logout(w http.ResponseWriter, r *http.Request) {
 	//	}{
 	//		AfterLogoutURL: s.afterLogoutRedirectURL,
 	//	}
-	logger.Infof("HBSEO logout redirection path: '%s'", path.Join(s.authserviceURLPrefix, s.afterLogoutRedirectURL))
+	logger.Infof("HBSEO logout redirection path: '%s' ", path.Join(s.authserviceURLPrefix, s.afterLogoutRedirectURL))
 	// Return 201 because the logout endpoint is still on the envoy-facing server,
 	// meaning that returning a 200 will result in the request being proxied upstream.
 	returnRedirection(w, http.StatusFound, path.Join(s.authserviceURLPrefix, s.afterLogoutRedirectURL))

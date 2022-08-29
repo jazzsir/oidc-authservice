@@ -6,6 +6,8 @@ import (
 	"encoding/gob"
 	"fmt"
 	"net/http"
+	"net/http/httputil"
+	"path"
 	"reflect"
 	"strings"
 	"time"
@@ -48,6 +50,7 @@ type server struct {
 	oauth2Config            *oauth2.Config
 	store                   sessions.Store
 	oidcStateStore          sessions.Store
+	authserviceURLPrefix    string
 	bearerUserInfoCache     *cache.Cache
 	authenticators          []authenticator.Request
 	authorizers             []Authorizer
@@ -58,8 +61,8 @@ type server struct {
 	strictSessionValidation bool
 
 	// Cache Configurations
-	cacheEnabled            bool
-	cacheExpirationMinutes  int
+	cacheEnabled           bool
+	cacheExpirationMinutes int
 
 	// Authenticators Configurations
 	IDTokenAuthnEnabled     bool
@@ -67,12 +70,12 @@ type server struct {
 	AccessTokenAuthnEnabled bool
 	AccessTokenAuthn        string
 
-	authHeader              string
-	idTokenOpts             jwtClaimOpts
-	upstreamHTTPHeaderOpts  httpHeaderOpts
-	userIdTransformer       UserIDTransformer
-	caBundle                []byte
-	sessionSameSite         http.SameSite
+	authHeader             string
+	idTokenOpts            jwtClaimOpts
+	upstreamHTTPHeaderOpts httpHeaderOpts
+	userIdTransformer      UserIDTransformer
+	caBundle               []byte
+	sessionSameSite        http.SameSite
 }
 
 // jwtClaimOpts specifies the location of the user's identity inside a JWT's
@@ -98,7 +101,7 @@ func (s *server) authenticate(w http.ResponseWriter, r *http.Request) {
 
 	var userInfo user.Info
 	for i, auth := range s.authenticators {
-		if !s.enabledAuthenticator(authenticatorsMapping[i]){
+		if !s.enabledAuthenticator(authenticatorsMapping[i]) {
 			continue
 		}
 
@@ -246,6 +249,13 @@ func (s *server) authCodeFlowAuthenticationRequest(w http.ResponseWriter, r *htt
 func (s *server) callback(w http.ResponseWriter, r *http.Request) {
 
 	logger := loggerForRequest(r, logModuleInfo)
+	logger.Infof("HBSEO callback: '%s'", "callback")
+
+	requestDump, err := httputil.DumpRequestOut(r, true)
+	if err != nil {
+		logger.Errorf("HBSEO callback: '%s'", err.Error())
+	}
+	logger.Infof("HBSEO callback requestDump: '%s'", string(requestDump))
 
 	// Get authorization code from authorization response.
 	var authCode = r.FormValue("code")
@@ -364,7 +374,7 @@ func (s *server) callback(w http.ResponseWriter, r *http.Request) {
 }
 
 // enabledAuthenticator indicates if the examined authenticator is enabled.
-func (s *server) enabledAuthenticator(authenticator string) (bool){
+func (s *server) enabledAuthenticator(authenticator string) bool {
 	if authenticator == "kubernetes authenticator" && s.KubernetesAuthnEnabled {
 		return true
 	}
@@ -390,16 +400,38 @@ func (s *server) logout(w http.ResponseWriter, r *http.Request) {
 
 	logger := loggerForRequest(r, logModuleInfo)
 
-	// Only header auth allowed for this endpoint
-	sessionID := getBearerToken(r.Header.Get(s.authHeader))
-	if sessionID == "" {
-		logger.Errorf("Request doesn't have a session value in header '%s'", s.authHeader)
-		w.WriteHeader(http.StatusUnauthorized)
-		return
+	logger.Infof("Request doesn't have a session value in header '%s'", s.authHeader)
+
+	requestDump, err := httputil.DumpRequestOut(r, true)
+	if err != nil {
+		logger.Errorf("HBSEO logout   Request error: '%s'", err.Error())
 	}
+	logger.Infof("HBSEO logout   Request: '%s'", string(requestDump))
+
+	// Only header auth allowed for this endpoint
+	//	sessionID := getBearerToken(r.Header.Get(s.authHeader))
+	//	if sessionID == "" {
+	//		logger.Errorf("Request doesn't have a session value in header '%s'", s.authHeader)
+	//		w.WriteHeader(http.StatusUnauthorized)
+	//		return
+	//	}
 
 	// Revoke user session.
-	session, err := sessionFromID(sessionID, s.store)
+	//	session, err := sessionFromID(sessionID, s.store)
+	//	if err != nil {
+	//		logger.Errorf("Couldn't get user session: %v", err)
+	//		w.WriteHeader(http.StatusInternalServerError)
+	//		return
+	//	}
+	//	if session.IsNew {
+	//		logger.Warn("Request doesn't have a valid session.")
+	//		w.WriteHeader(http.StatusUnauthorized)
+	//		return
+	//	}
+
+	// Revoke user session.
+	session, _, err := sessionFromRequest(r, s.store, userSessionCookie, s.authHeader)
+
 	if err != nil {
 		logger.Errorf("Couldn't get user session: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -410,6 +442,7 @@ func (s *server) logout(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
+
 	logger = logger.WithField("userid", session.Values[userSessionUserID].(string))
 
 	err = revokeOIDCSession(r.Context(), w, session, s.provider, s.oauth2Config, s.caBundle)
@@ -427,14 +460,15 @@ func (s *server) logout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Info("Successful logout.")
-	resp := struct {
-		AfterLogoutURL string `json:"afterLogoutURL"`
-	}{
-		AfterLogoutURL: s.afterLogoutRedirectURL,
-	}
+	//	resp := struct {
+	//		AfterLogoutURL string `json:"afterLogoutURL"`
+	//	}{
+	//		AfterLogoutURL: s.afterLogoutRedirectURL,
+	//	}
+	logger.Infof("HBSEO logout redirection path: '%s'", path.Join(s.authserviceURLPrefix, s.afterLogoutRedirectURL))
 	// Return 201 because the logout endpoint is still on the envoy-facing server,
 	// meaning that returning a 200 will result in the request being proxied upstream.
-	returnJSONMessage(w, http.StatusCreated, resp)
+	returnRedirection(w, http.StatusFound, path.Join(s.authserviceURLPrefix, s.afterLogoutRedirectURL))
 }
 
 // readiness is the handler that checks if the authservice is ready for serving

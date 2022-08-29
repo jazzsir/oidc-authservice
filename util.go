@@ -8,8 +8,8 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/json"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -71,6 +71,12 @@ func returnMessage(w http.ResponseWriter, statusCode int, msg string) {
 	if err != nil {
 		log.Errorf("Failed to write body: %v", err)
 	}
+}
+
+func returnRedirection(w http.ResponseWriter, statusCode int, redirectionUrl string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Location", redirectionUrl)
+	w.WriteHeader(statusCode)
 }
 
 func returnJSONMessage(w http.ResponseWriter, statusCode int, jsonMsg interface{}) {

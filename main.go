@@ -50,12 +50,15 @@ func main() {
 	// Register handlers for routes
 	router := mux.NewRouter()
 	router.HandleFunc(path.Join(c.AuthserviceURLPrefix.Path, OIDCCallbackPath), s.callback).Methods(http.MethodGet)
-	router.HandleFunc(path.Join(c.AuthserviceURLPrefix.Path, SessionLogoutPath), s.logout).Methods(http.MethodPost)
+	//router.HandleFunc(path.Join(c.AuthserviceURLPrefix.Path, SessionLogoutPath), s.logout).Methods(http.MethodPost)
+	router.HandleFunc(path.Join(c.AuthserviceURLPrefix.Path, SessionLogoutPath), s.logout).Methods(http.MethodGet)
 
 	router.PathPrefix("/").Handler(whitelistMiddleware(c.SkipAuthURLs, isReady)(http.HandlerFunc(s.authenticate)))
 
 	// Start server
 	log.Infof("Starting server at %v:%v", c.Hostname, c.Port)
+	log.Infof("HBSEO logout path is %s", SessionLogoutPath)
+	log.Infof("HBSEO AuthserviceURLPrefix.Path is %s", c.AuthserviceURLPrefix.Path)
 	stopCh := make(chan struct{})
 	go func(stopCh chan struct{}) {
 		log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", c.Hostname, c.Port), handlers.CORS()(router)))
@@ -168,7 +171,7 @@ func main() {
 		caBundle:    caBundle,
 		provider:    provider,
 		audiences:   c.Audiences,
-		issuer:	     c.ProviderURL.String(),
+		issuer:      c.ProviderURL.String(),
 		userIDClaim: c.UserIDClaim,
 		groupsClaim: c.GroupsClaim,
 	}
@@ -195,6 +198,7 @@ func main() {
 		// TODO: Add support for Redis
 		store:                  store,
 		oidcStateStore:         oidcStateStore,
+		authserviceURLPrefix:   c.AuthserviceURLPrefix.String(),
 		bearerUserInfoCache:    bearerUserInfoCache,
 		afterLoginRedirectURL:  c.AfterLoginURL.String(),
 		homepageURL:            c.HomepageURL.String(),

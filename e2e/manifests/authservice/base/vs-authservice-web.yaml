@@ -2,6 +2,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: authservice-web
+  namespace: istio-system
 spec:
   gateways:
     - kubeflow/kubeflow-gateway
@@ -15,6 +16,6 @@ spec:
         uri: /
       route:
         - destination:
-            host: authservice.$(NAMESPACE).svc.cluster.local
+            host: authservice.istio-system.svc.cluster.local
             port:
               number: 8082

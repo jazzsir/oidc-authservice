@@ -4,10 +4,10 @@ kind: Kustomization
 resources:
 - service.yaml
 - statefulset.yaml
-- envoy-filter.yaml
 - pvc.yaml
 - rbac.yaml
-- virtualservice.yaml
+- vs-authservice-logout.yaml
+- vs-authservice-web.yaml
 
 namespace: istio-system
 
@@ -30,7 +30,3 @@ vars:
     name: authservice
 configurations:
 - params.yaml
-images:
-- name: gcr.io/arrikto/kubeflow/oidc-authservice
-  newName: gcr.io/arrikto-public/kubeflow/oidc-authservice
-  newTag: ba062bb-dirty-1ebb3c

@@ -234,15 +234,30 @@ func (s *server) getCachedUserInfo(cacheKey string, r *http.Request) user.Info {
 func (s *server) authCodeFlowAuthenticationRequest(w http.ResponseWriter, r *http.Request) {
 	logger := loggerForRequest(r, logModuleInfo)
 
-	// Initiate OIDC Flow with Authorization Request.
-	state, err := createState(r, w, s.oidcStateStore)
-	if err != nil {
-		logger.Errorf("Failed to save state in store: %v", err)
-		returnMessage(w, http.StatusInternalServerError, "Failed to save state in store.")
-		return
-	}
+	logger.Infof("HBSEO  authCodeFlowAuthenticationRequest Req: r.Host={%s} r.URL.Path{%s}\n", r.Host, r.URL.Path)
 
-	http.Redirect(w, r, s.oauth2Config.AuthCodeURL(state), http.StatusFound)
+	// Initiate OIDC Flow with Authorization Request.
+
+	var state string
+	var err error
+
+	if r.URL.Path == "/" {
+		// HBSEO the path to redirect to login screen of keycloak using "realms" path in keycloak virtual service
+		logger.Infof("HBSEO r.URL.Path==/")
+		state, err = createState(r, w, s.oidcStateStore)
+		logger.Infof("HBSEO state:%s", state)
+
+		if err != nil {
+			logger.Errorf("Failed to save state in store: %v", err)
+			returnMessage(w, http.StatusInternalServerError, "Failed to save state in store.")
+			return
+		}
+		http.Redirect(w, r, s.oauth2Config.AuthCodeURL(state), http.StatusFound)
+
+	} else {
+		// HBSEO the paths to get images from keycloak using "resoruces" path in keycloak virtual service
+		logger.Infof("HBSEO r.URL.Path!=/")
+	}
 }
 
 // callback is the handler responsible for exchanging the auth_code and retrieving an id_token.
@@ -261,6 +276,9 @@ func (s *server) callback(w http.ResponseWriter, r *http.Request) {
 	var authCode = r.FormValue("code")
 	if len(authCode) == 0 {
 		logger.Warnf("Missing url parameter: code. Redirecting to homepage `%s'.", s.homepageURL)
+
+		logger.Infof("HBSEO callback 001 Req: %s %s\n", r.Host, r.URL.Path)
+
 		http.Redirect(w, r, s.homepageURL, http.StatusFound)
 		return
 	}
@@ -370,6 +388,9 @@ func (s *server) callback(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.WithField("redirectTo", destination).
 		Info("Login validated with ID token, redirecting.")
+
+	logger.Infof("HBSEO callback 002 Req: %s %s\n", r.Host, r.URL.Path)
+
 	http.Redirect(w, r, destination, http.StatusFound)
 }
 

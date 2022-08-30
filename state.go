@@ -40,6 +40,8 @@ func newState(firstVisitedURL string) *State {
 func createState(r *http.Request, w http.ResponseWriter,
 	store sessions.Store) (string, error) {
 
+	logger := loggerForRequest(r, logModuleInfo)
+
 	firstVisitedURL, err := url.Parse("")
 	if err != nil {
 		return "", errors.Wrap(err, "Failed to initialize empty URL")
@@ -65,6 +67,7 @@ func createState(r *http.Request, w http.ResponseWriter,
 	if err != nil {
 		return "", errors.Wrap(err, "error trying to save session")
 	}
+	logger.Infof("HBSEO state:%s'", c.Value)
 	return c.Value, nil
 }
 
@@ -94,10 +97,15 @@ func verifyState(r *http.Request, w http.ResponseWriter,
 
 	// Confirm the two values match.
 	if stateParam != stateCookie.Value {
+
 		return nil, errors.New("State value from http params doesn't match " +
 			"value in cookie. Possible reasons for this error include " +
 			"opening the login form in more than 1 browser tabs OR a CSRF " +
-			"attack.")
+			"attack." +
+			"stateParam:" +
+			stateParam +
+			", stateCookie.Value:" +
+			stateCookie.Value)
 	}
 
 	// Retrieve session from store. If it doesn't exist, it may have expired.

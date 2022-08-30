@@ -1,0 +1,21 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: authservice-logout
+  namespace: istio-system
+spec:
+  gateways:
+    - kubeflow/kubeflow-gateway
+  hosts:
+    - '*'
+  http:
+    - match:
+        - uri:
+            prefix: /logout
+      rewrite:
+        uri: /authservice/logout
+      route:
+        - destination:
+            host: authservice.istio-system.svc.cluster.local
+            port:
+              number: 8082
